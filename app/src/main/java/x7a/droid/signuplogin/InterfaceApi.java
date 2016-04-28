@@ -1,6 +1,9 @@
 package x7a.droid.signuplogin;
 
+import java.util.List;
+
 import retrofit2.Call;
+import retrofit2.Callback;
 import retrofit2.http.Body;
 import retrofit2.http.DELETE;
 import retrofit2.http.GET;
@@ -11,7 +14,7 @@ import retrofit2.http.Path;
 /**
  * Created by DroiD on 20/04/2016.
  */
-public interface LoginApi {
+public interface InterfaceApi {
     @GET("/SignupLogin")
     Call<Users> getUsers();
 
@@ -25,8 +28,7 @@ public interface LoginApi {
     Call<User> saveUser(@Body User user);
 
     @DELETE("/SignupLogin/{id}")
-    Call<User> deleteUser(@Path("id")int user_id, @Body User user);
-
+    Call<User> deleteUser(@Path("id")int user_id);
 
 
 

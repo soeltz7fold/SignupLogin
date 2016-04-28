@@ -1,10 +1,10 @@
 <resources>
-    <string name="app_name">SignupLogin</string>
+    <string name="app_name">Signup//Login</string>
 
     <!-- Strings related to login -->
     <string name="prompt_email">Input Your Email</string>
     <string name="prompt_password">Enter Ure Password</string>
-    <string name="action_sign_in">Sign in or register</string>
+    <string name="action_sign_in">Sign in</string>
     <string name="action_sign_in_short">Sign in</string>
     <string name="error_invalid_email">This email address is invalid</string>
     <string name="error_invalid_password">This password is too short</string>
@@ -13,8 +13,21 @@
     <string name="permission_rationale">"Contacts permissions are needed for providing email
         completions."
     </string>
+    <string name="registration_message">You are not registered yet. Use the registration button to complete your registration.</string>
 
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
     <string name="httpconnection">HTTP Connection</string>
+    <string name="title_activity_intent">Intent</string>
+    <string name="temp_email">dwikunto.bayu@kiranatama.com</string>
+    <string name="temp_password">DKJ3288nd</string>
+    <string name="action_register">Register</string>
+
+    <string-array name="autocomplete">
+        <item>soeltz7fold@gmail.com</item>
+        <item>mdwibayukunto@kiaratama.com</item>
+        <item>kelvinjames@yahoo.com</item>
+        <item>henrysweart@gmail.com</item>
+        <item>gracepowell@yahoo.com</item>
+    </string-array>
 </resources>

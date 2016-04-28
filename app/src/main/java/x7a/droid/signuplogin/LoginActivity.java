@@ -3,22 +3,19 @@ package x7a.droid.signuplogin;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
-import android.content.pm.PackageManager;
-import android.support.annotation.NonNull;
-import android.support.design.widget.Snackbar;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
-import android.app.LoaderManager.LoaderCallbacks;
-
-import android.content.CursorLoader;
-import android.content.Loader;
-import android.database.Cursor;
-import android.net.Uri;
-import android.os.AsyncTask;
 
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -27,16 +24,14 @@ import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
-import org.json.JSONException;
-
 import java.io.BufferedReader;
-import java.net.HttpURLConnection;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -45,219 +40,224 @@ import retrofit2.Callback;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
-
-import static android.Manifest.permission.READ_CONTACTS;
+import retrofit2.http.Body;
 
 /**
  * A login screen that offers login via email/password.
  */
-public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<Cursor> {
-    TextView tv_respond, tv_result_api;
-
-    /**
-     * Id to identity READ_CONTACTS permission request.
-     */
-    private static final int REQUEST_READ_CONTACTS = 0;
-
-    /**
-     * A dummy authentication store containing known user names and passwords.
-     * TODO: remove after connecting to a real authentication system.
-     */
-    private static final String[] DUMMY_CREDENTIALS = new String[]{
-            "foo@example.com:hello", "bar@example.com:world"
-    };
-    /**
-     * Keep track of the login task to ensure we can cancel it if requested.
-     */
-    private UserLoginTask mAuthTask = null;
-
+public class LoginActivity extends AppCompatActivity {
+    //    private UserLoginTask mAuthTask = null;
     // UI references.
+    public static final String PASSWORD_KEY = "password";
+    public static final String EMAIL_KEY = "email";
+    public static final String TOKEN_KEY = "token_authentication";
     private AutoCompleteTextView editEmail;
     private EditText editPass;
     private View mProgressView;
     private View mLoginFormView;
-    HttpURLConnection konek = null;
+    private String strEmail, strPassword, strToken;
+    TextView tv_respond, tv_result_api;
+    ProgressBar pBar;
+    ArrayList<User> arrayList = new ArrayList<>();
+    //    private TextView status;
+    public static final String BASE_URL_LOGIN = "http://private-f4dc2-signuplogin.apiary-mock.com";
+    View focusView = null;
     BufferedReader reader = null;
+    AlertDialog alert;
+    Button sign, register;
+    public Boolean status_login;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
+        //koneksih
+        if (!konekNet()) {
+            Toast.makeText(this, "Ooopss, No Connection Detected", Toast.LENGTH_SHORT)
+                    .show();
+        } else {
+            Toast.makeText(this, "Connection Available", Toast.LENGTH_SHORT)
+                    .show();
+        }
+
         // Set up the login form.
+        mLoginFormView = findViewById(R.id.login_form);
+        mProgressView = findViewById(R.id.login_progress);
+        tv_respond = (TextView) findViewById(R.id.tv_respond);
+        tv_result_api = (TextView) findViewById(R.id.tv_result_api);
+        pBar = (ProgressBar)findViewById(R.id.login_progress);
         editEmail = (AutoCompleteTextView) findViewById(R.id.email);
-        populateAutoComplete();
-
-        //Try ti dieu
-        tv_respond = (TextView)findViewById(R.id.tv_respond);
-        tv_result_api = (TextView)findViewById(R.id.tv_result_api);
-
-        Gson gson = new GsonBuilder()
-                .setDateFormat("yyyy-MM-dd'T'H:mm:ssZ")
-                .create();
-        Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://private-f4dc2-signuplogin.apiary-mock.com")
-                .addConverterFactory(GsonConverterFactory.create(gson))
-                .build();
-        LoginApi login_api = retrofit.create(LoginApi.class);
-
-        //implements Interface for get all user
-        Call<Users> call = login_api.getUsers();
-        call.enqueue(new Callback<Users>() {
-            @Override
-            public void onResponse(Call<Users> call, Response<Users> response) {
-                int status = response.code();
-                tv_respond.setText(String.valueOf(status));
-                for(Users.UserItem user : response.body().getUsers())
-                {
-                    tv_result_api.append(
-                            "Id = " +String.valueOf(user.getId())+
-                                    System.getProperty("line.separator")+
-                            "Email = " +user.getEmail()+
-                                    System.getProperty("line.separator")+
-                            "Password = " +user.getPassword()+
-                                    System.getProperty("line.separator")+
-                            "Token_authentication = " +user.getToken_authentication()+
-                                    System.getProperty("line.separator")
-                    );
-                }
-            }
-
-            @Override
-            public void onFailure(Call<Users> call, Throwable t) {
-                tv_respond.setText(String.valueOf(t));
-            }
-        });
-
-
+                    populateAutoComplete();
+        //SET VALUE SHARED PREFERENCES
+//        //Shared Preferences can be Access From Different Activity
+//        SharedPreferences IsLogin = getSharedPreferences("authentication", MODE_PRIVATE);
+//        SharedPreferences.Editor IsLogin_editor = IsLogin.edit();
+//        IsLogin_editor.putString("token_authentication", "fd@3jfD83#dfaksdfweqoru#LEWlkj");
+//        IsLogin_editor.commit();
+        //input editPass//
         editPass = (EditText) findViewById(R.id.password);
         editPass.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView textView, int id, KeyEvent keyEvent) {
                 if (id == R.id.login || id == EditorInfo.IME_NULL) {
                     attemptLogin();
+//                    if(status_login == false){
+                        Toast.makeText(LoginActivity.this, "Login Gagal", Toast.LENGTH_SHORT).show();
+//                    }
                     return true;
                 }
                 return false;
             }
+
         });
 
+        //Button Login Clicked//
         Button sign = (Button) findViewById(R.id.email_sign_in_button);
         sign.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View view) {
-                Toast.makeText(LoginActivity.this, "TEST", Toast.LENGTH_SHORT).show();
+                strEmail = editEmail.getText().toString();
+                strPassword = editPass.getText().toString();
+                attemptLogin();
             }
         });
+        Button reg = (Button) findViewById(R.id.email_register_button);
+        reg.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent i = new Intent(LoginActivity.this, RegisterActivity.class);
+                startActivity(i);
 
-        mLoginFormView = findViewById(R.id.login_form);
-        mProgressView = findViewById(R.id.login_progress);
+            }
+        });
     }
 
     private void populateAutoComplete() {
-        if (!mayRequestContacts()) {
-            return;
-        }
-
-        getLoaderManager().initLoader(0, null, this);
+        String[] countries = getResources().getStringArray(R.array.autocomplete);
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, countries);
+        editEmail.setAdapter(adapter);
     }
 
-    private boolean mayRequestContacts() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            return true;
-        }
-        if (checkSelfPermission(READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
-            return true;
-        }
-        if (shouldShowRequestPermissionRationale(READ_CONTACTS)) {
-            Snackbar.make(editEmail, R.string.permission_rationale, Snackbar.LENGTH_INDEFINITE)
-                    .setAction(android.R.string.ok, new View.OnClickListener() {
-                        @Override
-                        @TargetApi(Build.VERSION_CODES.M)
-                        public void onClick(View v) {
-                            requestPermissions(new String[]{READ_CONTACTS}, REQUEST_READ_CONTACTS);
-                        }
-                    });
-        } else {
-            requestPermissions(new String[]{READ_CONTACTS}, REQUEST_READ_CONTACTS);
-        }
-        return false;
-    }
-
-    /**
-     * Callback received when a permissions request has been completed.
-     */
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        if (requestCode == REQUEST_READ_CONTACTS) {
-            if (grantResults.length == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                populateAutoComplete();
-            }
-        }
-    }
-
-
-    /**
-     * Attempts to sign in or register the account specified by the login form.
-     * If there are form errors (invalid email, missing fields, etc.), the
-     * errors are presented and no actual login attempt is made.
-     */
     private void attemptLogin() {
-        if (mAuthTask != null) {
-            return;
+        boolean mCancel = this.loginValidation();
+        if (mCancel) {
+            focusView.requestFocus();
+        } else {
+            login_cek(strEmail, strPassword);
+
         }
+    }
 
-        // Reset errors.
-        editEmail.setError(null);
-        editPass.setError(null);
 
-        // Store values at the time of the login attempt.
-        String email = editEmail.getText().toString();
-        String password = editPass.getText().toString();
+    //
+    private void login_cek(final String strEmail, final String strPassword) {
+        //Try ti dieu
+        Gson gson = new GsonBuilder()
+                .setDateFormat("yyyy-MM-dd'T'H:mm:ssZ")
+                .create();
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl(BASE_URL_LOGIN)
+                .addConverterFactory(GsonConverterFactory.create(gson))
+                .build();
+        InterfaceApi login_api = retrofit.create(InterfaceApi.class);
+        Call<Users> call = login_api.getUsers();
+        call.enqueue(new Callback<Users>() {
+            @Override
+            public void onResponse(Call<Users> call, Response<Users> response) {
+                int status = response.code();
+                tv_respond.setText("Nilai Response API = "+String.valueOf(status));
+                for (Users.UserItem user : response.body().getUsers())
+                {
+//                    tv_result_api.append(
+//                            "Id = " + String.valueOf(user.getId()) +
+//                                    System.getProperty("line.separator") +
+//                            "Email = " + user.getEmail() +
+//                                    System.getProperty("line.separator") +
+//                            "Password = " + user.getPassword() +
+//                                    System.getProperty("line.separator") +
+//                            "Token Authentication = " + user.getToken_authentication() +
+//                                    System.getProperty("line.separator") +
+//                                    System.getProperty("line.separator"));
 
+                    status_login = false;
+                    if (strEmail.equals(user.getEmail())&& strPassword.equals(user.getPassword())) {
+                        status_login = true;
+                        strToken = user.getToken_authentication();
+                        status_login(status_login, strToken);
+                        pBar.setVisibility(View.VISIBLE);
+                        break;
+                    }
+                    //conditon true/false
+
+//                    else{
+//                        Toast.makeText(LoginActivity.this, "Something Wrong With Your Inputted", Toast.LENGTH_SHORT).show();
+//                    }
+
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Users> call, Throwable t) {
+                tv_respond.setText("Nilai Response API = "+String.valueOf(t));
+                Log.d("Login", "Login Response-" + t.getMessage());
+            }
+        });
+    }
+
+    public void status_login(boolean status, String strToken){
+    if(status) {
+
+//                        Toast.makeText(LoginActivity.this,"Welcome Home", Toast.LENGTH_SHORT).show();
+//
+        //Shared Preferences can be Access From Different Activity
+        SharedPreferences IsLogin = getSharedPreferences("authentication", MODE_PRIVATE);
+        SharedPreferences.Editor IsLogin_editor = IsLogin.edit();
+        IsLogin_editor.putString("token_authentication", strToken);
+        IsLogin_editor.commit();
+
+        Toast.makeText(LoginActivity.this, "Success Login", Toast.LENGTH_SHORT).show();
+        //Start Activity
+        Intent i = new Intent(LoginActivity.this, IntentActivity.class);
+        startActivity(i);
+        finish();
+
+    }
+    else Toast.makeText(LoginActivity.this, "Failed Login", Toast.LENGTH_SHORT).show();
+    }
+// Validasi Login
+    private boolean loginValidation() {
+        //RESET ERROR
         boolean cancel = false;
-        View focusView = null;
 
         // Check for a valid password, if the user entered one.
-        if (!TextUtils.isEmpty(password) && !isPasswordValid(password)) {
+        if (!TextUtils.isEmpty(strPassword) && !isPasswordValid(strPassword)) {
             editPass.setError(getString(R.string.error_invalid_password));
             focusView = editPass;
             cancel = true;
         }
-
         // Check for a valid email address.
-        if (TextUtils.isEmpty(email)) {
+        if (TextUtils.isEmpty(strEmail)) {
             editEmail.setError(getString(R.string.error_field_required));
             focusView = editEmail;
             cancel = true;
-        } else if (!isEmailValid(email)) {
+        } else if (!isEmailValid(strEmail)) {
             editEmail.setError(getString(R.string.error_invalid_email));
             focusView = editEmail;
             cancel = true;
         }
 
-        if (cancel) {
-            // There was an error; don't attempt login and focus the first
-            // form field with an error.
-            focusView.requestFocus();
-        } else {
-            // Show a progress spinner, and kick off a background task to
-            // perform the user login attempt.
-            showProgress(true);
-            mAuthTask = new UserLoginTask(email, password);
-            mAuthTask.execute((Void) null);
-        }
+        return cancel;
     }
 
-    private boolean isEmailValid(String email) {
-        //TODO: Replace this with your own logic
-        return email.contains("@");
+
+    private boolean isEmailValid(String strEmail) {
+        return strEmail.contains("@");
     }
 
-    private boolean isPasswordValid(String password) {
-        //TODO: Replace this with your own logic
-        return password.length() > 4;
+    private boolean isPasswordValid(String strPassword) {
+        return strPassword.length()>5;
     }
+
 
     /**
      * Shows the progress UI and hides the login form.
@@ -295,39 +295,6 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
         }
     }
 
-    @Override
-    public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
-        return new CursorLoader(this,
-                // Retrieve data rows for the device user's 'profile' contact.
-                Uri.withAppendedPath(ContactsContract.Profile.CONTENT_URI,
-                        ContactsContract.Contacts.Data.CONTENT_DIRECTORY), ProfileQuery.PROJECTION,
-
-                // Select only email addresses.
-                ContactsContract.Contacts.Data.MIMETYPE +
-                        " = ?", new String[]{ContactsContract.CommonDataKinds.Email
-                .CONTENT_ITEM_TYPE},
-
-                // Show primary email addresses first. Note that there won't be
-                // a primary email address if the user hasn't specified one.
-                ContactsContract.Contacts.Data.IS_PRIMARY + " DESC");
-    }
-
-    @Override
-    public void onLoadFinished(Loader<Cursor> cursorLoader, Cursor cursor) {
-        List<String> emails = new ArrayList<>();
-        cursor.moveToFirst();
-        while (!cursor.isAfterLast()) {
-            emails.add(cursor.getString(ProfileQuery.ADDRESS));
-            cursor.moveToNext();
-        }
-
-        addEmailsToAutoComplete(emails);
-    }
-
-    @Override
-    public void onLoaderReset(Loader<Cursor> cursorLoader) {
-
-    }
 
     private void addEmailsToAutoComplete(List<String> emailAddressCollection) {
         //Create adapter to tell the AutoCompleteTextView what to show in its dropdown list.
@@ -349,78 +316,14 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
         int IS_PRIMARY = 1;
     }
 
-    /**
-     * Represents an asynchronous login/registration task used to authenticate
-     * the user.
-     */
-    public class UserLoginTask extends AsyncTask<Void, Void, Boolean> {
-
-        private final String mEmail;
-        private final String mPassword;
-
-        UserLoginTask(String email, String password) {
-            mEmail = email;
-            mPassword = password;
-        }
-
-        @Override
-        protected Boolean doInBackground(Void... params) {
-            // TODO: attempt authentication against a network service.
-
-            try {
-                // Simulate network access.
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
+    public boolean konekNet(){
+        ConnectivityManager konek = (ConnectivityManager)this
+                .getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo netInfo = konek.getActiveNetworkInfo();
+        if(netInfo !=null && netInfo.isConnectedOrConnecting()){
+                return true;
+        }else{
                 return false;
-            }
-
-            for (String credential : DUMMY_CREDENTIALS) {
-                String[] pieces = credential.split(":");
-                if (pieces[0].equals(mEmail)) {
-                    // Account exists, return true if the password matches.
-                    return pieces[1].equals(mPassword);
-                }
-            }
-
-            // TODO: register the new account here.
-            return true;
-        }
-
-        @Override
-        protected void onPostExecute(final Boolean success) {
-            mAuthTask = null;
-            showProgress(false);
-
-            if (success) {
-                finish();
-            } else {
-                editPass.setError(getString(R.string.error_incorrect_password));
-                editPass.requestFocus();
-            }
-        }
-
-        @Override
-        protected void onCancelled() {
-            mAuthTask = null;
-            showProgress(false);
         }
     }
-//    class Apikonek extends AsyncTask<String, String, String>{
-//        @Override
-//        protected String doInBackground(String... params){
-//            return get_data(params[0]);
-//        }
-//        @Override
-//        protected void onPostExecute (String s){
-//            super.onPostExecute(s);
-//            try{
-//                process_json(s);
-//            }
-//            catch (JSONException e){
-//                e.printStackTrace();
-//            }
-//        }
-//    }
-
 }
-
